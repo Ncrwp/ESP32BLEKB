@@ -2,12 +2,17 @@
 #include <WebServer.h>
 #include <NimBLEDevice.h>
 #include <NimBLEHIDDevice.h>
-#include "config.h"  // Your Wi-Fi credentials
+#include "config.h"
 
 WebServer server(80);
 NimBLEHIDDevice* hid;
 NimBLECharacteristic* input;
 bool isConnected = false;
+
+// Static IP Configuration
+IPAddress local_IP(192, 168, 0, 15);  // Set static IP address
+IPAddress gateway(192, 168, 0, 1);    // Set gateway (your router's IP)
+IPAddress subnet(255, 255, 255, 0);   // Set subnet mask
 
 // === BLE Server Callback Class ===
 class MyServerCallbacks : public NimBLEServerCallbacks {
@@ -21,7 +26,6 @@ class MyServerCallbacks : public NimBLEServerCallbacks {
     Serial.println("BLE disconnected.");
   }
 };
-
 
 void setupBLE() {
   NimBLEDevice::init("ESP32_Keyboard");
@@ -87,14 +91,38 @@ void handleSend() {
 void setup() {
   Serial.begin(115200);
 
-  // Connect to Wi-Fi
+  // Log Wi-Fi credentials for debugging
+  Serial.println("Connecting to Wi-Fi...");
+  Serial.print("SSID: ");
+  Serial.println(ssid); // Log the SSID being used for connection
+  Serial.print("Password: ");
+  Serial.println(password); // Log the password being used (for debugging only)
+
+  // Connect to Wi-Fi with Static IP
+  WiFi.config(local_IP, gateway, subnet);  // Apply static IP configuration
   WiFi.begin(ssid, password);
-  Serial.print("Connecting to Wi-Fi");
-  while (WiFi.status() != WL_CONNECTED) {
+
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
     delay(500);
     Serial.print(".");
+    attempts++;
   }
-  Serial.println("\nConnected. IP: " + WiFi.localIP().toString());
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nWi-Fi connected successfully!");
+    Serial.print("IP Address: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println("\nWi-Fi connection failed.");
+    Serial.print("Error: ");
+    Serial.println(WiFi.status());
+    
+    // Attempt to reconnect after 5 seconds if the Wi-Fi connection fails
+    Serial.println("Retrying connection...");
+    delay(5000);
+    ESP.restart();  // Restart ESP32 to try reconnecting
+  }
 
   // Start web server
   server.on("/", handleRoot);
