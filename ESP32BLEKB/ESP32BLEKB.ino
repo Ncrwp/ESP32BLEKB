@@ -7,18 +7,42 @@
 WebServer server(80);
 BleKeyboard bleKeyboard("BLE Keyboard");  // Give the keyboard a name (optional)
 
-// Ultra-minimal HTML (stored in PROGMEM)
+// HTML with resizable textarea (description box)
 const char htmlPage[] PROGMEM = R"rawliteral(
-<html><body>
-<form action='/send' method='GET'>
-<input type='text' name='text' maxlength='50'><button>Send</button>
-</form></body></html>
+<html>
+  <head>
+    <style>
+      textarea {
+        width: 300px;
+        height: 150px;
+        font-size: 14px;
+        resize: both; /* Allows resizing in both directions */
+      }
+      button {
+        padding: 8px 16px;
+        font-size: 16px;
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>BLE Keyboard</h2>
+    <form action='/send' method='GET'>
+      <textarea name='text' placeholder='Type your text here...'></textarea><br>
+      <button type='submit'>Send</button>
+    </form>
+  </body>
+</html>
 )rawliteral";
 
-// Send text via BLE Keyboard (optimized loop)
+// Improved sendText() with delay between characters
 void sendText(String text) {
   if (bleKeyboard.isConnected()) {
-    bleKeyboard.print(text);  // Send entire string at once (faster)
+    for (unsigned int i = 0; i < text.length(); i++) {
+      bleKeyboard.write(text.charAt(i));  // More reliable than print()
+      delay(20);  // 20ms delay prevents stuck keys
+      yield();    // Prevent watchdog timer issues
+    }
   }
 }
 
@@ -37,13 +61,12 @@ void handleSend() {
 }
 
 void setup() {
-  // Skip Serial.begin() to save space
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) delay(100);
 
   bleKeyboard.begin();  // Start BLE keyboard
 
-  // Minimal server setup
+  // Server setup
   server.on("/", handleRoot);
   server.on("/send", handleSend);
   server.begin();
