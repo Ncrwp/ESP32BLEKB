@@ -41,6 +41,12 @@ const char htmlPage[] PROGMEM = R"rawliteral(
       display: flex;
       gap: 10px;
     }
+    .key-group {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 10px;
+    }
     button {
       padding: 10px 20px;
       color: white;
@@ -61,6 +67,9 @@ const char htmlPage[] PROGMEM = R"rawliteral(
     }
     button.unpair {
       background-color: #FF9800;
+    }
+    button.key {
+      background-color: #9E9E9E;
     }
     button:hover {
       opacity: 0.8;
@@ -92,6 +101,16 @@ const char htmlPage[] PROGMEM = R"rawliteral(
         <button type='button' class='clear' onclick='clearText()'>Clear Text</button>
       </div>
     </form>
+    <div class="key-group">
+      <button type='button' class='key' onclick='sendKey("ENTER")'>Enter</button>
+      <button type='button' class='key' onclick='sendKey("BACKSPACE")'>Backspace</button>
+      <button type='button' class='key' onclick='sendKey("TAB")'>Tab</button>
+      <button type='button' class='key' onclick='sendKey("ESC")'>Esc</button>
+      <button type='button' class='key' onclick='sendKey("UP")'>Up</button>
+      <button type='button' class='key' onclick='sendKey("DOWN")'>Down</button>
+      <button type='button' class='key' onclick='sendKey("LEFT")'>Left</button>
+      <button type='button' class='key' onclick='sendKey("RIGHT")'>Right</button>
+    </div>
     <div class="button-group">
       <button type='button' class='pair' onclick='pairDevice()'>Pair Keyboard</button>
       <button type='button' class='unpair' onclick='unpairDevice()'>Unpair Keyboard</button>
@@ -124,6 +143,15 @@ const char htmlPage[] PROGMEM = R"rawliteral(
           }
         });
       }
+    }
+    
+    function sendKey(key) {
+      fetch('/key?key=' + encodeURIComponent(key))
+        .then(response => {
+          if (!response.ok) {
+            alert('Error sending key');
+          }
+        });
     }
     
     // Update status periodically
@@ -159,6 +187,32 @@ void sendText(String text) {
   }
 }
 
+void sendKey(String key) {
+  Serial.printf("[BLE] Attempting to send key: %s\n", key.c_str());
+  if (bleKeyboard.isConnected()) {
+    if (key == "ENTER") {
+      bleKeyboard.write(KEY_RETURN);
+    } else if (key == "BACKSPACE") {
+      bleKeyboard.write(KEY_BACKSPACE);
+    } else if (key == "TAB") {
+      bleKeyboard.write(KEY_TAB);
+    } else if (key == "ESC") {
+      bleKeyboard.write(KEY_ESC);
+    } else if (key == "UP") {
+      bleKeyboard.write(KEY_UP_ARROW);
+    } else if (key == "DOWN") {
+      bleKeyboard.write(KEY_DOWN_ARROW);
+    } else if (key == "LEFT") {
+      bleKeyboard.write(KEY_LEFT_ARROW);
+    } else if (key == "RIGHT") {
+      bleKeyboard.write(KEY_RIGHT_ARROW);
+    }
+    Serial.printf("[BLE] Key %s sent successfully\n", key.c_str());
+  } else {
+    Serial.println("[BLE] Error: Keyboard not connected!");
+  }
+}
+
 String getHtmlPage() {
   String page = FPSTR(htmlPage);
   bool isConnected = bleKeyboard.isConnected();
@@ -187,6 +241,17 @@ void handleSend() {
   }
   server.sendHeader("Location", "/");
   server.send(303);
+}
+
+void handleKey() {
+  if (server.hasArg("key")) {
+    String key = server.arg("key");
+    Serial.printf("[WEB] Key received: %s\n", key.c_str());
+    sendKey(key);
+  } else {
+    Serial.println("[WEB] Error: No key parameter received");
+  }
+  server.send(200, "text/plain", "Key sent");
 }
 
 void handlePair() {
@@ -246,6 +311,7 @@ void setup() {
   
   server.on("/", handleRoot);
   server.on("/send", handleSend);
+  server.on("/key", handleKey);
   server.on("/pair", handlePair);
   server.on("/unpair", handleUnpair);
   server.on("/status", handleStatus);
