@@ -292,12 +292,23 @@ void handleStatus() {
   server.send(200, "application/json", statusJson);
 }
 
+#define BLUE_LED_PIN 2  // Built-in LED on ESP32 WROOM32
+
 void setup() {
   Serial.begin(115200);
   Serial.println("\n\nBLE Keyboard Web Controller");
   Serial.println("===========================");
 
+  pinMode(BLUE_LED_PIN, OUTPUT);
+  digitalWrite(BLUE_LED_PIN, LOW); // LED off at start
+
   Serial.print("Connecting to WiFi ");
+  if (!WiFi.config(local_IP, gateway, subnet, dns)) {
+  Serial.println("Static IP config failed");
+} else {
+  Serial.println("Static IP configured");
+}
+WiFi.begin(ssid, password);
   WiFi.begin(ssid, password);
   unsigned long wifiStart = millis();
   while (WiFi.status() != WL_CONNECTED) {
@@ -310,6 +321,10 @@ void setup() {
   }
 
   Serial.printf("\n[WIFI] Connected! IP: %s\n", WiFi.localIP().toString().c_str());
+
+  // Turn LED solid ON when connected
+  digitalWrite(BLUE_LED_PIN, HIGH);
+
   Serial.println("[BLE] Initializing keyboard...");
   bleKeyboard.begin();
 
@@ -325,9 +340,26 @@ void setup() {
 
 void loop() {
   static unsigned long lastStatus = 0;
+  static unsigned long lastBlink = 0;
+  static bool ledState = false;
+
   if (millis() - lastStatus > 5000) {
     Serial.printf("[STATUS] BLE Connected: %s\n", bleKeyboard.isConnected() ? "Yes" : "No");
     lastStatus = millis();
   }
+
   server.handleClient();
+
+  if (WiFi.status() != WL_CONNECTED) {
+    // Blink LED when not connected
+    if (millis() - lastBlink >= 500) {
+      ledState = !ledState;
+      digitalWrite(BLUE_LED_PIN, ledState ? HIGH : LOW);
+      lastBlink = millis();
+    }
+  } else {
+    // Solid ON if connected
+    digitalWrite(BLUE_LED_PIN, HIGH);
+  }
 }
+
