@@ -10,6 +10,8 @@ const char htmlPage[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
 <head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>BLE Keyboard Controller</title>
   <style>
     body {
@@ -95,6 +97,28 @@ const char htmlPage[] PROGMEM = R"rawliteral(
       background-color: #FFBABA;
       color: #D8000C;
     }
+    @media (max-width: 600px) {
+  textarea {
+    height: 300px; /* taller on small screens */
+    font-size: 18px;
+  }
+
+  .button-group {
+    flex-direction: column;
+  }
+
+  .key-group {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  button {
+    font-size: 18px;
+    padding: 12px;
+  }
+
+  body {
+    padding: 10px;
+  }
   </style>
 </head>
 <body>
@@ -186,7 +210,7 @@ void sendText(String text, int delayMs = 20) {
     for (unsigned int i = 0; i < text.length(); i++) {
       char c = text.charAt(i);
       if (isPrintable(c) || c == '\n' || c == '\t') {
-        Serial.printf("[BLE] Sending char %d/%d: 0x%02X '%c'\n", i+1, text.length(), c, c);
+        Serial.printf("[BLE] Sending char %d/%d: 0x%02X '%c'\n", i + 1, text.length(), c, c);
         bleKeyboard.write(c);
         delay(delayMs);
         yield();
@@ -239,8 +263,8 @@ void handleSend() {
 
   if (server.hasArg("text")) {
     String text = server.arg("text");
-    Serial.printf("[WEB] Text received (%d chars): '%.20s%s'\n", 
-                  text.length(), text.c_str(), 
+    Serial.printf("[WEB] Text received (%d chars): '%.20s%s'\n",
+                  text.length(), text.c_str(),
                   (text.length() > 20 ? "..." : ""));
     sendText(text, delayMs);
   } else {
@@ -287,8 +311,7 @@ void handleUnpair() {
 
 void handleStatus() {
   bool isConnected = bleKeyboard.isConnected();
-  String statusJson = "{\"connected\":" + String(isConnected ? "true" : "false") +
-                      ",\"status\":\"" + (isConnected ? "Connected" : "Disconnected") + "\"}";
+  String statusJson = "{\"connected\":" + String(isConnected ? "true" : "false") + ",\"status\":\"" + (isConnected ? "Connected" : "Disconnected") + "\"}";
   server.send(200, "application/json", statusJson);
 }
 
@@ -300,15 +323,15 @@ void setup() {
   Serial.println("===========================");
 
   pinMode(BLUE_LED_PIN, OUTPUT);
-  digitalWrite(BLUE_LED_PIN, LOW); // LED off at start
+  digitalWrite(BLUE_LED_PIN, LOW);  // LED off at start
 
   Serial.print("Connecting to WiFi ");
   if (!WiFi.config(local_IP, gateway, subnet, dns)) {
-  Serial.println("Static IP config failed");
-} else {
-  Serial.println("Static IP configured");
-}
-WiFi.begin(ssid, password);
+    Serial.println("Static IP config failed");
+  } else {
+    Serial.println("Static IP configured");
+  }
+  WiFi.begin(ssid, password);
   WiFi.begin(ssid, password);
   unsigned long wifiStart = millis();
   while (WiFi.status() != WL_CONNECTED) {
@@ -362,4 +385,3 @@ void loop() {
     digitalWrite(BLUE_LED_PIN, HIGH);
   }
 }
-
